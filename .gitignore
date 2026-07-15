@@ -1,0 +1,45 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+.m2/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
+# Build
+build/
+dist/
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+
+# Spring Boot
+spring-boot-devtools.properties
+
+# Test Coverage
+coverage/
+.jacoco/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (for frontend later)
+node_modules/
+package-lock.json
+yarn.lock
+dist/
+build/
