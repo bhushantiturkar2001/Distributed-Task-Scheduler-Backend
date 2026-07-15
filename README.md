@@ -113,20 +113,6 @@ redis-cli -h localhost
 docker exec taskforge-kafka kafka-topics --bootstrap-server localhost:9092 --list
 ```
 
-## Project Status
-
-### ✅ Day 1 (July 15, 2026) - Completed
-- [x] Initialize Spring Boot project
-- [x] Set up folder structure
-- [x] Add all dependencies to pom.xml
-- [x] Create Docker Compose (PostgreSQL + Redis + Kafka + Zookeeper)
-- [x] Test startup
-
-### ⏳ Next Steps (Day 2)
-- [ ] Create JPA entities (Task, TaskSchedule, ExecutionLog)
-- [ ] Write Flyway migration SQL scripts
-- [ ] Test DB connection
-
 ## Environment Configuration
 
 Check `src/main/resources/application.yml` for all configuration options.
@@ -166,12 +152,8 @@ docker-compose logs postgres
 
 ## References
 
-- [Detailed Project Plan](../DETAILED_PLAN.md)
 - Spring Boot: https://spring.io/projects/spring-boot
 - Kafka: https://kafka.apache.org/
 - PostgreSQL: https://www.postgresql.org/
 
 ---
-
-**Created:** July 15, 2026  
-**Sprint 1, Day 1**
