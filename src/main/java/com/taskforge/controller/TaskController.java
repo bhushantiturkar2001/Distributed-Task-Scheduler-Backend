@@ -2,11 +2,13 @@ package com.taskforge.controller;
 
 import com.taskforge.model.Task;
 import com.taskforge.service.TaskService;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -14,6 +16,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/v1/tasks")
 @Slf4j
+@Validated
 public class TaskController {
 
     private final TaskService taskService;
@@ -23,7 +26,7 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<Task> createTask(@RequestBody Task task) {
+    public ResponseEntity<Task> createTask(@Valid @RequestBody Task task) {
         log.info("REST: Create task request: {}", task.getName());
         Task createdTask = taskService.createTask(task);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdTask);

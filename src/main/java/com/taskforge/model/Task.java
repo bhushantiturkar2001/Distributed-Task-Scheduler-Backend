@@ -1,6 +1,9 @@
 package com.taskforge.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,15 +29,18 @@ public class Task {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @NotBlank(message = "Task name is required")
     @Column(nullable = false, length = 255)
     private String name;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @NotBlank(message = "Payload is required")
     @Column(nullable = false, columnDefinition = "jsonb")
     private String payload;
 
+    @NotNull(message = "Task type is required")
     @Column(nullable = false, length = 50)
     @Enumerated(EnumType.STRING)
     private TaskType taskType;
@@ -49,6 +55,7 @@ public class Task {
     @Builder.Default
     private TaskStatus status = TaskStatus.PENDING;
 
+    @NotNull(message = "Scheduled time is required")
     @Column(nullable = false)
     private LocalDateTime scheduledAt;
 
@@ -58,10 +65,12 @@ public class Task {
     @Column
     private LocalDateTime completedAt;
 
+    @Positive(message = "Retry count must be positive")
     @Column(nullable = false)
     @Builder.Default
     private Integer retryCount = 0;
 
+    @Positive(message = "Max retries must be positive")
     @Column(nullable = false)
     @Builder.Default
     private Integer maxRetries = 3;
