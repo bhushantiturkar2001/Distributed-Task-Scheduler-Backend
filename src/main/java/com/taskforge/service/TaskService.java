@@ -61,6 +61,26 @@ public class TaskService {
     }
 
     @Transactional
+    public Task updateTask(UUID id, Task taskDetails) {
+        log.info("Updating task: {}", id);
+        Task task = getTaskById(id);
+        
+        if (task.getStatus() != Task.TaskStatus.PENDING) {
+            throw new RuntimeException("Cannot update task that is not in PENDING status");
+        }
+
+        task.setName(taskDetails.getName());
+        task.setDescription(taskDetails.getDescription());
+        task.setPayload(taskDetails.getPayload());
+        task.setTaskType(taskDetails.getTaskType());
+        task.setPriority(taskDetails.getPriority());
+        task.setScheduledAt(taskDetails.getScheduledAt());
+        task.setMaxRetries(taskDetails.getMaxRetries());
+
+        return taskRepository.save(task);
+    }
+
+    @Transactional
     public void deleteTask(UUID id) {
         log.info("Deleting task: {}", id);
         Task task = getTaskById(id);

@@ -65,4 +65,11 @@ public class TaskController {
         taskService.cancelTask(id);
         return ResponseEntity.ok().build();
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Task> updateTask(@PathVariable UUID id, @Valid @RequestBody Task task) {
+        log.info("REST: Update task: {}", id);
+        Task updatedTask = taskService.updateTask(id, task);
+        return ResponseEntity.ok(updatedTask);
+    }
 }
