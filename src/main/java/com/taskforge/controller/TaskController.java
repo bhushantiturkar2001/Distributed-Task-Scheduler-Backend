@@ -1,5 +1,8 @@
 package com.taskforge.controller;
 
+import com.taskforge.dto.CreateTaskRequest;
+import com.taskforge.dto.TaskResponse;
+import com.taskforge.dto.UpdateTaskRequest;
 import com.taskforge.model.Task;
 import com.taskforge.service.TaskService;
 import jakarta.validation.Valid;
@@ -26,21 +29,22 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<Task> createTask(@Valid @RequestBody Task task) {
-        log.info("REST: Create task request: {}", task.getName());
+    public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody CreateTaskRequest request) {
+        log.info("REST: Create task request: {}", request.getName());
+        Task task = request.toEntity();
         Task createdTask = taskService.createTask(task);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdTask);
+        return ResponseEntity.status(HttpStatus.CREATED).body(TaskResponse.fromEntity(createdTask));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Task> getTaskById(@PathVariable UUID id) {
+    public ResponseEntity<TaskResponse> getTaskById(@PathVariable UUID id) {
         log.info("REST: Get task by id: {}", id);
         Task task = taskService.getTaskById(id);
-        return ResponseEntity.ok(task);
+        return ResponseEntity.ok(TaskResponse.fromEntity(task));
     }
 
     @GetMapping
-    public ResponseEntity<Page<Task>> getAllTasks(
+    public ResponseEntity<Page<TaskResponse>> getAllTasks(
             @RequestParam(required = false) Task.TaskStatus status,
             Pageable pageable) {
         log.info("REST: Get all tasks, status: {}, page: {}", status, pageable.getPageNumber());
@@ -49,7 +53,7 @@ public class TaskController {
             ? taskService.getTasksByStatus(status, pageable)
             : taskService.getAllTasks(pageable);
         
-        return ResponseEntity.ok(tasks);
+        return ResponseEntity.ok(tasks.map(TaskResponse::fromEntity));
     }
 
     @DeleteMapping("/{id}")
@@ -67,9 +71,18 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Task> updateTask(@PathVariable UUID id, @Valid @RequestBody Task task) {
+    public ResponseEntity<TaskResponse> updateTask(@PathVariable UUID id, @Valid @RequestBody UpdateTaskRequest request) {
         log.info("REST: Update task: {}", id);
-        Task updatedTask = taskService.updateTask(id, task);
-        return ResponseEntity.ok(updatedTask);
+        Task taskDetails = Task.builder()
+                .name(request.getName())
+                .description(request.getDescription())
+                .payload(request.getPayload())
+                .taskType(request.getTaskType())
+                .priority(request.getPriority())
+                .scheduledAt(request.getScheduledAt())
+                .maxRetries(request.getMaxRetries())
+                .build();
+        Task updatedTask = taskService.updateTask(id, taskDetails);
+        return ResponseEntity.ok(TaskResponse.fromEntity(updatedTask));
     }
 }
