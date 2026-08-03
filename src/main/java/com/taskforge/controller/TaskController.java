@@ -5,6 +5,11 @@ import com.taskforge.dto.TaskResponse;
 import com.taskforge.dto.UpdateTaskRequest;
 import com.taskforge.model.Task;
 import com.taskforge.service.TaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,6 +25,7 @@ import java.util.UUID;
 @RequestMapping("/v1/tasks")
 @Slf4j
 @Validated
+@Tag(name = "Task Management", description = "APIs for managing scheduled tasks")
 public class TaskController {
 
     private final TaskService taskService;
@@ -29,6 +35,11 @@ public class TaskController {
     }
 
     @PostMapping
+    @Operation(summary = "Create a new task", description = "Schedule a new task for execution")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Task created successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid input")
+    })
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody CreateTaskRequest request) {
         log.info("REST: Create task request: {}", request.getName());
         Task task = request.toEntity();
@@ -37,7 +48,13 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TaskResponse> getTaskById(@PathVariable UUID id) {
+    @Operation(summary = "Get task by ID", description = "Retrieve task details by its unique identifier")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Task found"),
+        @ApiResponse(responseCode = "404", description = "Task not found")
+    })
+    public ResponseEntity<TaskResponse> getTaskById(
+            @Parameter(description = "Task ID") @PathVariable UUID id) {
         log.info("REST: Get task by id: {}", id);
         Task task = taskService.getTaskById(id);
         return ResponseEntity.ok(TaskResponse.fromEntity(task));
