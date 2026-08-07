@@ -1,5 +1,7 @@
 package com.taskforge.service;
 
+import com.taskforge.exception.InvalidTaskOperationException;
+import com.taskforge.exception.TaskNotFoundException;
 import com.taskforge.model.Task;
 import com.taskforge.repository.TaskRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,7 +95,7 @@ class TaskServiceTest {
         when(taskRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, 
+        TaskNotFoundException exception = assertThrows(TaskNotFoundException.class, 
             () -> taskService.getTaskById(nonExistentId));
         
         assertTrue(exception.getMessage().contains("Task not found"));
@@ -214,10 +216,10 @@ class TaskServiceTest {
         when(taskRepository.findById(testTaskId)).thenReturn(Optional.of(testTask));
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, 
+        InvalidTaskOperationException exception = assertThrows(InvalidTaskOperationException.class, 
             () -> taskService.updateTask(testTaskId, updatedDetails));
         
-        assertTrue(exception.getMessage().contains("Cannot update task that is not in PENDING status"));
+        assertTrue(exception.getMessage().contains("Cannot update task"));
         verify(taskRepository, times(1)).findById(testTaskId);
         verify(taskRepository, never()).save(any(Task.class));
     }
@@ -245,10 +247,10 @@ class TaskServiceTest {
         when(taskRepository.findById(testTaskId)).thenReturn(Optional.of(testTask));
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, 
+        InvalidTaskOperationException exception = assertThrows(InvalidTaskOperationException.class, 
             () -> taskService.deleteTask(testTaskId));
         
-        assertTrue(exception.getMessage().contains("Cannot delete task that is currently running"));
+        assertTrue(exception.getMessage().contains("Cannot delete task"));
         verify(taskRepository, times(1)).findById(testTaskId);
         verify(taskRepository, never()).deleteById(any());
     }
@@ -276,10 +278,10 @@ class TaskServiceTest {
         when(taskRepository.findById(testTaskId)).thenReturn(Optional.of(testTask));
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, 
+        InvalidTaskOperationException exception = assertThrows(InvalidTaskOperationException.class, 
             () -> taskService.cancelTask(testTaskId));
         
-        assertTrue(exception.getMessage().contains("Cannot cancel task in current status"));
+        assertTrue(exception.getMessage().contains("Cannot cancel task"));
         verify(taskRepository, times(1)).findById(testTaskId);
         verify(taskRepository, never()).save(any(Task.class));
     }
@@ -292,10 +294,10 @@ class TaskServiceTest {
         when(taskRepository.findById(testTaskId)).thenReturn(Optional.of(testTask));
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, 
+        InvalidTaskOperationException exception = assertThrows(InvalidTaskOperationException.class, 
             () -> taskService.cancelTask(testTaskId));
         
-        assertTrue(exception.getMessage().contains("Cannot cancel task in current status"));
+        assertTrue(exception.getMessage().contains("Cannot cancel task"));
         verify(taskRepository, times(1)).findById(testTaskId);
         verify(taskRepository, never()).save(any(Task.class));
     }

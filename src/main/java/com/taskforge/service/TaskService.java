@@ -1,5 +1,7 @@
 package com.taskforge.service;
 
+import com.taskforge.exception.InvalidTaskOperationException;
+import com.taskforge.exception.TaskNotFoundException;
 import com.taskforge.model.Task;
 import com.taskforge.repository.TaskRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +36,7 @@ public class TaskService {
     public Task getTaskById(UUID id) {
         log.debug("Fetching task with id: {}", id);
         return taskRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+                .orElseThrow(() -> new TaskNotFoundException(id));
     }
 
     @Transactional(readOnly = true)
@@ -66,7 +68,8 @@ public class TaskService {
         Task task = getTaskById(id);
         
         if (task.getStatus() != Task.TaskStatus.PENDING) {
-            throw new RuntimeException("Cannot update task that is not in PENDING status");
+            throw new InvalidTaskOperationException(
+                "Cannot update task that is not in PENDING status. Current status: " + task.getStatus());
         }
 
         task.setName(taskDetails.getName());
@@ -86,7 +89,8 @@ public class TaskService {
         Task task = getTaskById(id);
         
         if (task.getStatus() == Task.TaskStatus.RUNNING) {
-            throw new RuntimeException("Cannot delete task that is currently running");
+            throw new InvalidTaskOperationException(
+                "Cannot delete task that is currently running. Task ID: " + id);
         }
 
         taskRepository.deleteById(id);
@@ -98,7 +102,8 @@ public class TaskService {
         Task task = getTaskById(id);
         
         if (task.getStatus() == Task.TaskStatus.RUNNING || task.getStatus() == Task.TaskStatus.DEAD) {
-            throw new RuntimeException("Cannot cancel task in current status: " + task.getStatus());
+            throw new InvalidTaskOperationException(
+                "Cannot cancel task in current status: " + task.getStatus() + ". Task ID: " + id);
         }
 
         task.setStatus(Task.TaskStatus.CANCELLED);
