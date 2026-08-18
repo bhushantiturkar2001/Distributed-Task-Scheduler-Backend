@@ -3,6 +3,7 @@ package com.taskforge.kafka;
 import com.taskforge.config.KafkaConfig;
 import com.taskforge.model.Task;
 import com.taskforge.repository.TaskRepository;
+import com.taskforge.util.TaskExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -21,9 +22,11 @@ import java.time.LocalDateTime;
 public class TaskConsumer {
 
     private final TaskRepository taskRepository;
+    private final TaskExecutor taskExecutor;
 
-    public TaskConsumer(TaskRepository taskRepository) {
+    public TaskConsumer(TaskRepository taskRepository, TaskExecutor taskExecutor) {
         this.taskRepository = taskRepository;
+        this.taskExecutor = taskExecutor;
     }
 
     /**
@@ -60,56 +63,25 @@ public class TaskConsumer {
             // Update status to RUNNING
             updateTaskStatus(task, Task.TaskStatus.RUNNING);
             
-            // Execute the task (basic implementation - just log for now)
-            executeTask(task);
+            // Execute the task using TaskExecutor
+            TaskExecutor.ExecutionResult result = taskExecutor.execute(task);
             
-            // Mark as SUCCESS
-            updateTaskStatus(task, Task.TaskStatus.SUCCESS);
-            
-            log.info("✅ Task completed successfully - ID: {}, Name: {}", taskId, task.getName());
+            if (result.isSuccess()) {
+                // Mark as SUCCESS
+                updateTaskStatus(task, Task.TaskStatus.SUCCESS, result.getOutput());
+                log.info("✅ Task completed successfully - ID: {}, Name: {}", taskId, task.getName());
+            } else {
+                // Mark as FAILED
+                updateTaskStatus(task, Task.TaskStatus.FAILED, result.getErrorMessage());
+                log.error("❌ Task execution failed - ID: {}, Error: {}", taskId, result.getErrorMessage());
+            }
             
         } catch (Exception e) {
-            log.error("❌ Task execution failed - ID: {}, Error: {}", taskId, e.getMessage(), e);
+            log.error("❌ Task execution exception - ID: {}, Error: {}", taskId, e.getMessage(), e);
             
             // Mark as FAILED
-            task.setErrorMessage(e.getMessage());
-            updateTaskStatus(task, Task.TaskStatus.FAILED);
+            updateTaskStatus(task, Task.TaskStatus.FAILED, e.getMessage());
         }
-    }
-
-    /**
-     * Basic task execution logic
-     * Currently just logs the task details
-     * Future: Will handle different task types (HTTP_CALL, LOG, CUSTOM)
-     * 
-     * @param task The task to execute
-     * @throws Exception if execution fails
-     */
-    private void executeTask(Task task) throws Exception {
-        log.info("🚀 Executing task - ID: {}, Type: {}", task.getId(), task.getTaskType());
-        
-        // Simulate task execution based on type
-        switch (task.getTaskType()) {
-            case HTTP_CALL:
-                log.info("📡 Would make HTTP call with payload: {}", task.getPayload());
-                break;
-                
-            case LOG:
-                log.info("📝 Logging task payload: {}", task.getPayload());
-                break;
-                
-            case CUSTOM:
-                log.info("⚙️ Custom task execution: {}", task.getPayload());
-                break;
-                
-            default:
-                log.warn("⚠️ Unknown task type: {}", task.getTaskType());
-        }
-        
-        // Simulate some work (remove in production)
-        Thread.sleep(1000);
-        
-        log.info("✅ Task execution completed - ID: {}", task.getId());
     }
 
     /**
@@ -119,6 +91,17 @@ public class TaskConsumer {
      * @param newStatus The new status
      */
     private void updateTaskStatus(Task task, Task.TaskStatus newStatus) {
+        updateTaskStatus(task, newStatus, null);
+    }
+
+    /**
+     * Update task status in the database with optional message
+     * 
+     * @param task The task to update
+     * @param newStatus The new status
+     * @param message Output or error message
+     */
+    private void updateTaskStatus(Task task, Task.TaskStatus newStatus, String message) {
         try {
             Task dbTask = taskRepository.findById(task.getId())
                     .orElseThrow(() -> new RuntimeException("Task not found: " + task.getId()));
@@ -131,8 +114,13 @@ public class TaskConsumer {
                 log.info("⏱️ Task started - ID: {}", task.getId());
             } else if (newStatus == Task.TaskStatus.SUCCESS || newStatus == Task.TaskStatus.FAILED) {
                 dbTask.setCompletedAt(LocalDateTime.now());
-                if (task.getErrorMessage() != null) {
-                    dbTask.setErrorMessage(task.getErrorMessage());
+                
+                if (message != null) {
+                    if (newStatus == Task.TaskStatus.FAILED) {
+                        dbTask.setErrorMessage(message);
+                    }
+                    // For SUCCESS, message could be logged but not stored (optional)
+                    log.debug("Task {} - Message: {}", newStatus, message);
                 }
             }
             
