@@ -3,6 +3,7 @@ package com.taskforge.kafka;
 import com.taskforge.config.KafkaConfig;
 import com.taskforge.model.Task;
 import com.taskforge.repository.TaskRepository;
+import com.taskforge.service.ExecutionLogService;
 import com.taskforge.util.TaskExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,10 +24,14 @@ public class TaskConsumer {
 
     private final TaskRepository taskRepository;
     private final TaskExecutor taskExecutor;
+    private final ExecutionLogService executionLogService;
 
-    public TaskConsumer(TaskRepository taskRepository, TaskExecutor taskExecutor) {
+    public TaskConsumer(TaskRepository taskRepository, 
+                       TaskExecutor taskExecutor,
+                       ExecutionLogService executionLogService) {
         this.taskRepository = taskRepository;
         this.taskExecutor = taskExecutor;
+        this.executionLogService = executionLogService;
     }
 
     /**
@@ -48,6 +53,7 @@ public class TaskConsumer {
             @Header(KafkaHeaders.OFFSET) long offset) {
 
         String taskId = task.getId().toString();
+        LocalDateTime executionStartTime = LocalDateTime.now();
         
         log.info("========================================");
         log.info("Worker received task from Kafka");
@@ -59,12 +65,16 @@ public class TaskConsumer {
         log.info("Kafka Offset: {}", offset);
         log.info("========================================");
 
+        TaskExecutor.ExecutionResult result = null;
+        
         try {
             // Update status to RUNNING
             updateTaskStatus(task, Task.TaskStatus.RUNNING);
             
             // Execute the task using TaskExecutor
-            TaskExecutor.ExecutionResult result = taskExecutor.execute(task);
+            result = taskExecutor.execute(task);
+            
+            LocalDateTime executionEndTime = LocalDateTime.now();
             
             if (result.isSuccess()) {
                 // Mark as SUCCESS
@@ -76,11 +86,30 @@ public class TaskConsumer {
                 log.error("❌ Task execution failed - ID: {}, Error: {}", taskId, result.getErrorMessage());
             }
             
+            // Log execution to database
+            try {
+                int attemptNumber = task.getRetryCount() + 1;
+                executionLogService.logExecution(task, result, executionStartTime, executionEndTime, attemptNumber);
+            } catch (Exception logEx) {
+                log.error("Failed to save execution log - ID: {}, Error: {}", taskId, logEx.getMessage());
+            }
+            
         } catch (Exception e) {
             log.error("❌ Task execution exception - ID: {}, Error: {}", taskId, e.getMessage(), e);
             
+            LocalDateTime executionEndTime = LocalDateTime.now();
+            
             // Mark as FAILED
             updateTaskStatus(task, Task.TaskStatus.FAILED, e.getMessage());
+            
+            // Log failed execution
+            try {
+                TaskExecutor.ExecutionResult failureResult = TaskExecutor.ExecutionResult.failure(e.getMessage());
+                int attemptNumber = task.getRetryCount() + 1;
+                executionLogService.logExecution(task, failureResult, executionStartTime, executionEndTime, attemptNumber);
+            } catch (Exception logEx) {
+                log.error("Failed to save execution log for exception - ID: {}, Error: {}", taskId, logEx.getMessage());
+            }
         }
     }
 
