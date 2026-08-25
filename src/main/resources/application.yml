@@ -64,3 +64,9 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     enabled: true
+
+# TaskForge Specific Configuration
+taskforge:
+  lock:
+    ttl-seconds: 60        # Lock expiration time (prevents stuck locks if worker crashes)
+    wait-time-seconds: 5   # Max time to wait for lock acquisition

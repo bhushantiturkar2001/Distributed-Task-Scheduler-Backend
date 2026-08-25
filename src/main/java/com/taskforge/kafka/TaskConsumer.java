@@ -4,6 +4,7 @@ import com.taskforge.config.KafkaConfig;
 import com.taskforge.model.Task;
 import com.taskforge.repository.TaskRepository;
 import com.taskforge.service.ExecutionLogService;
+import com.taskforge.service.RedisLockManager;
 import com.taskforge.util.TaskExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -17,6 +18,12 @@ import java.time.LocalDateTime;
 /**
  * TaskConsumer - Kafka listener that consumes tasks from the execution queue
  * Represents a worker node that processes tasks
+ * 
+ * Features:
+ * - Distributed locking to prevent duplicate execution
+ * - Concurrent processing with multiple consumer threads
+ * - Automatic execution logging
+ * - Dead Letter Queue handling
  */
 @Component
 @Slf4j
@@ -25,13 +32,16 @@ public class TaskConsumer {
     private final TaskRepository taskRepository;
     private final TaskExecutor taskExecutor;
     private final ExecutionLogService executionLogService;
+    private final RedisLockManager lockManager;
 
     public TaskConsumer(TaskRepository taskRepository, 
                        TaskExecutor taskExecutor,
-                       ExecutionLogService executionLogService) {
+                       ExecutionLogService executionLogService,
+                       RedisLockManager lockManager) {
         this.taskRepository = taskRepository;
         this.taskExecutor = taskExecutor;
         this.executionLogService = executionLogService;
+        this.lockManager = lockManager;
     }
 
     /**
@@ -53,7 +63,6 @@ public class TaskConsumer {
             @Header(KafkaHeaders.OFFSET) long offset) {
 
         String taskId = task.getId().toString();
-        LocalDateTime executionStartTime = LocalDateTime.now();
         
         log.info("========================================");
         log.info("Worker received task from Kafka");
@@ -65,6 +74,17 @@ public class TaskConsumer {
         log.info("Kafka Offset: {}", offset);
         log.info("========================================");
 
+        // Try to acquire distributed lock
+        boolean lockAcquired = lockManager.acquireLock(task.getId());
+        
+        if (!lockAcquired) {
+            log.warn("🔒 Could not acquire lock for task: {}. Another worker may be processing it. Skipping.", taskId);
+            log.warn("This is expected behavior in multi-worker setup and prevents duplicate execution.");
+            return; // Skip this task, another worker is handling it
+        }
+
+        log.info("🔓 Lock acquired for task: {}", taskId);
+        LocalDateTime executionStartTime = LocalDateTime.now();
         TaskExecutor.ExecutionResult result = null;
         
         try {
@@ -110,6 +130,10 @@ public class TaskConsumer {
             } catch (Exception logEx) {
                 log.error("Failed to save execution log for exception - ID: {}, Error: {}", taskId, logEx.getMessage());
             }
+        } finally {
+            // Always release the lock
+            lockManager.releaseLock(task.getId());
+            log.info("🔓 Lock released for task: {}", taskId);
         }
     }
 

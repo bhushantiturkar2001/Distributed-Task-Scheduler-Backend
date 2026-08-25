@@ -18,31 +18,73 @@ TaskForge is a **distributed task scheduler** that enables:
 - Process batch operations at specific times
 - Execute webhooks at scheduled intervals
 
-## 📋 Features Implemented (Sprint 1 ✅)
+## 📋 Features Implemented
 
-### ✅ Core Task Management
+### ✅ Sprint 1: Foundation (Days 1-7)
+
+#### Core Task Management
 - **CRUD Operations**: Create, read, update, delete tasks
 - **Task Status Tracking**: PENDING → QUEUED → RUNNING → SUCCESS/FAILED
 - **Task Filtering**: Filter by status, priority, scheduled time
 - **Pagination Support**: Efficient listing of large task sets
 
-### ✅ Database Layer
+#### Database Layer
 - **PostgreSQL Integration**: ACID-compliant task storage
 - **Flyway Migrations**: Version-controlled schema management
 - **3 Main Tables**: tasks, task_schedules, execution_logs
 - **Optimized Indexes**: Status + scheduled_at for fast queries
 
-### ✅ REST API
+#### REST API
 - **OpenAPI/Swagger Documentation**: Auto-generated API docs
 - **Request Validation**: Bean validation with detailed error messages
 - **Custom Exception Handling**: Proper HTTP status codes (404, 409, 400, 500)
 - **DTO Layer**: Clean separation between API contracts and domain models
 
-### ✅ Code Quality
+#### Code Quality
 - **14 Unit Tests**: Comprehensive test coverage with JUnit 5 + Mockito
 - **Custom Exceptions**: TaskNotFoundException, InvalidTaskOperationException
 - **Structured Logging**: SLF4J with contextual information
 - **Clean Architecture**: Controller → Service → Repository layers
+
+### ✅ Sprint 2: Kafka + Workers (Days 8-14)
+
+#### Kafka Integration
+- **TaskProducer**: Async task publishing with idempotence and compression
+- **TaskConsumer**: Kafka listener with 3 concurrent consumer threads
+- **Consumer Groups**: `taskforge-workers` for load balancing
+- **Dead Letter Queue**: `task.dead` topic for permanently failed tasks
+
+#### Task Execution Pipeline
+- **SchedulerService**: Polls PostgreSQL every 5 seconds for due tasks
+- **Status Flow**: PENDING → QUEUED → RUNNING → SUCCESS/FAILED/DEAD
+- **TaskExecutor**: 
+  - HTTP_CALL type (makes actual HTTP requests)
+  - LOG type (logs output)
+  - CUSTOM type (extensible)
+- **ExecutionLogService**: Complete audit trail with worker ID, duration, attempt number
+
+### ✅ Sprint 3 (In Progress): Redis Locking (Days 15-16)
+
+#### Distributed Locking
+- **RedisConfig**: Redisson client for distributed locks and coordination
+- **RedisLockManager**: Lock acquisition/release with configurable TTL
+- **Lock Features**:
+  - Prevents duplicate task execution across multiple workers
+  - Auto-expiration (60s TTL) - handles worker crashes
+  - Lock wait timeout (5s) - fails fast if lock unavailable
+  - Thread-safe ownership checking
+  - `executeWithLock()` pattern for automatic lock management
+- **Integration**: TaskConsumer acquires lock before task execution
+- **Testing**: 16 comprehensive unit tests (100% pass rate)
+- **Documentation**: Complete Redis locking guide (`REDIS_LOCKING_GUIDE.md`)
+
+**Lock Behavior:**
+```
+Worker 1: Receives task → Acquires lock ✅ → Executes → Releases lock
+Worker 2: Receives task → Lock unavailable ⏳ → Skips (Worker 1 has it)
+Worker 3: Receives task → Lock unavailable ⏳ → Skips (Worker 1 has it)
+Result: Task executes exactly once! ✅
+```
 
 ## 🏗️ Architecture
 
@@ -298,9 +340,29 @@ mvn clean test jacoco:report
 - [x] Unit tests (14 tests)
 - [x] Custom exceptions
 
-### 🔜 Upcoming (Sprint 2-6)
-- Sprint 2: Kafka integration + Worker architecture
-- Sprint 3: Redis locking + Retry mechanism + Priority
+### ✅ Sprint 2 Complete (Days 8-14)
+- [x] Kafka producer/consumer configuration
+- [x] TaskProducer with async publishing
+- [x] TaskConsumer with 3 concurrent threads
+- [x] SchedulerService (polls every 5s for due tasks)
+- [x] Task status transitions (PENDING → QUEUED → RUNNING → SUCCESS/FAILED)
+- [x] TaskExecutor (HTTP_CALL, LOG, CUSTOM types)
+- [x] Dead Letter Queue (DLQ) handling
+- [x] ExecutionLogService with audit trail
+- [x] End-to-end task execution pipeline
+
+### 🚧 Sprint 3 In Progress (Days 15-21)
+- [x] **Day 15-16: Redis distributed locking** ✅
+  - RedisConfig with Redisson client
+  - RedisLockManager service
+  - Lock integration in TaskConsumer
+  - 16 unit tests (100% pass)
+  - Comprehensive locking guide
+- [ ] Day 17-18: Retry mechanism with exponential backoff
+- [ ] Day 19-20: Priority queue implementation
+- [ ] Day 21: Worker heartbeat monitoring
+
+### 🔜 Upcoming (Sprint 4-6)
 - Sprint 4: Recurring tasks (cron) + Metrics API
 - Sprint 5: React dashboard
 - Sprint 6: Load testing + Deployment
@@ -361,10 +423,17 @@ docker-compose logs postgres
 - Validation at API boundary, not domain layer
 - Clean mapping with `toEntity()` and `fromEntity()`
 
+### Current Capabilities (Sprint 2 + Sprint 3)
+- ✅ **Distributed Locking**: Redis locks prevent duplicate execution across workers
+- ✅ **Kafka Integration**: Async task queue with consumer groups
+- ✅ **Multiple Workers**: Horizontal scalability with 3 concurrent consumers
+- ✅ **Execution Logging**: Complete audit trail with worker identification
+- ⏳ **Retry Mechanism**: Coming in Day 17-18
+
 ### Current Trade-offs
-- **No distributed locking yet**: Single-instance execution (Sprint 3)
-- **No Kafka yet**: Synchronous task scheduling (Sprint 2)
-- **No retry mechanism yet**: Manual retry only (Sprint 3)
+- **No retry mechanism yet**: Manual retry only (Day 17-18)
+- **No priority queuing yet**: FIFO execution (Day 19-20)
+- **No worker heartbeat yet**: Health monitoring (Day 21)
 
 ## 🤝 Contributing
 
