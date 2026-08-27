@@ -1,10 +1,12 @@
 package com.taskforge.kafka;
 
 import com.taskforge.config.KafkaConfig;
+import com.taskforge.kafka.TaskProducer;
 import com.taskforge.model.Task;
 import com.taskforge.repository.TaskRepository;
 import com.taskforge.service.ExecutionLogService;
 import com.taskforge.service.RedisLockManager;
+import com.taskforge.service.RetryHandler;
 import com.taskforge.util.TaskExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,6 +25,7 @@ import java.time.LocalDateTime;
  * - Distributed locking to prevent duplicate execution
  * - Concurrent processing with multiple consumer threads
  * - Automatic execution logging
+ * - Retry mechanism with exponential backoff
  * - Dead Letter Queue handling
  */
 @Component
@@ -33,15 +36,21 @@ public class TaskConsumer {
     private final TaskExecutor taskExecutor;
     private final ExecutionLogService executionLogService;
     private final RedisLockManager lockManager;
+    private final RetryHandler retryHandler;
+    private final TaskProducer taskProducer;
 
     public TaskConsumer(TaskRepository taskRepository, 
                        TaskExecutor taskExecutor,
                        ExecutionLogService executionLogService,
-                       RedisLockManager lockManager) {
+                       RedisLockManager lockManager,
+                       RetryHandler retryHandler,
+                       TaskProducer taskProducer) {
         this.taskRepository = taskRepository;
         this.taskExecutor = taskExecutor;
         this.executionLogService = executionLogService;
         this.lockManager = lockManager;
+        this.retryHandler = retryHandler;
+        this.taskProducer = taskProducer;
     }
 
     /**
@@ -101,9 +110,12 @@ public class TaskConsumer {
                 updateTaskStatus(task, Task.TaskStatus.SUCCESS, result.getOutput());
                 log.info("✅ Task completed successfully - ID: {}, Name: {}", taskId, task.getName());
             } else {
-                // Mark as FAILED
+                // Mark as FAILED and handle retry
                 updateTaskStatus(task, Task.TaskStatus.FAILED, result.getErrorMessage());
                 log.error("❌ Task execution failed - ID: {}, Error: {}", taskId, result.getErrorMessage());
+                
+                // Handle retry logic
+                handleTaskFailure(task, result.getErrorMessage());
             }
             
             // Log execution to database
@@ -122,6 +134,9 @@ public class TaskConsumer {
             // Mark as FAILED
             updateTaskStatus(task, Task.TaskStatus.FAILED, e.getMessage());
             
+            // Handle retry logic
+            handleTaskFailure(task, e.getMessage());
+            
             // Log failed execution
             try {
                 TaskExecutor.ExecutionResult failureResult = TaskExecutor.ExecutionResult.failure(e.getMessage());
@@ -134,6 +149,39 @@ public class TaskConsumer {
             // Always release the lock
             lockManager.releaseLock(task.getId());
             log.info("🔓 Lock released for task: {}", taskId);
+        }
+    }
+
+    /**
+     * Handle task failure with retry logic.
+     * If retries remain, re-publishes to Kafka with exponential backoff.
+     * If max retries exceeded, publishes to DLQ.
+     * 
+     * @param task Failed task
+     * @param errorMessage Error message
+     */
+    private void handleTaskFailure(Task task, String errorMessage) {
+        if (retryHandler.shouldRetry(task)) {
+            // Prepare task for retry with exponential backoff
+            Task retryTask = retryHandler.prepareForRetry(task, errorMessage);
+            
+            // Calculate delay and log retry info
+            int delaySeconds = retryHandler.calculateBackoffDelay(retryTask.getRetryCount() - 1);
+            log.info("🔄 Task {} will retry in {}s (attempt {}/{})", 
+                    task.getId(), delaySeconds, retryTask.getRetryCount(), retryTask.getMaxRetries());
+            
+            // Re-publish to Kafka for retry
+            // Note: scheduledAt is set to future time, SchedulerService will pick it up
+            taskProducer.publishTask(retryTask);
+            
+        } else {
+            // Max retries exceeded, prepare for DLQ
+            Task deadTask = retryHandler.prepareForDLQ(task, errorMessage);
+            log.error("💀 Task {} exceeded max retries ({}). Moving to DLQ.", 
+                    task.getId(), task.getMaxRetries());
+            
+            // Publish to Dead Letter Queue
+            taskProducer.publishToDeadLetterQueue(deadTask);
         }
     }
 

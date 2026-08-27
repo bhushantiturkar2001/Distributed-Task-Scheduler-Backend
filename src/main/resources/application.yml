@@ -70,3 +70,6 @@ taskforge:
   lock:
     ttl-seconds: 60        # Lock expiration time (prevents stuck locks if worker crashes)
     wait-time-seconds: 5   # Max time to wait for lock acquisition
+  retry:
+    base-delay-seconds: 1  # Base delay for exponential backoff (1s, 2s, 4s, 8s...)
+    max-delay-seconds: 300 # Max backoff delay (5 minutes)
