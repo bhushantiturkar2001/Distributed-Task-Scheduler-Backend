@@ -320,9 +320,11 @@ mvn clean test jacoco:report
 
 **Current Test Coverage:**
 - ✅ TaskService: 14 unit tests (100% pass rate)
-- All CRUD operations tested
-- Exception scenarios covered
-- Mock-based testing (no DB required)
+- ✅ RedisLockManager: 16 unit tests (100% pass rate)
+- ✅ RedisLockConcurrency: 7 concurrency tests (100% pass rate)
+- ✅ RetryHandler: 16 unit tests (100% pass rate)
+- ✅ PriorityQueue: 7 unit tests (100% pass rate)
+- **Total: 60 tests passing**
 
 ## 📊 Project Status
 
@@ -364,7 +366,12 @@ mvn clean test jacoco:report
   - DLQ handling after max retries
   - 16 unit tests (100% pass)
   - All 53 tests passing
-- [ ] Day 19-20: Priority queue implementation
+- [x] **Day 19-20: Priority queue implementation** ✅
+  - Created separate Kafka topics for each priority (HIGH, MEDIUM, LOW)
+  - Priority-based task routing in TaskProducer
+  - Multiple consumer listeners for priority queues
+  - 7 unit tests (100% pass)
+  - All 60 tests passing
 - [ ] Day 21: Worker heartbeat monitoring
 
 ### 🔜 Upcoming (Sprint 4-6)
@@ -430,15 +437,17 @@ docker-compose logs postgres
 
 ### Current Capabilities (Sprint 2 + Sprint 3)
 - ✅ **Distributed Locking**: Redis locks prevent duplicate execution across workers
+- ✅ **Retry Mechanism**: Exponential backoff (1s → 2s → 4s → 8s → 16s...)
+- ✅ **Priority Queue**: Separate Kafka topics for HIGH/MEDIUM/LOW priority tasks
 - ✅ **Kafka Integration**: Async task queue with consumer groups
 - ✅ **Multiple Workers**: Horizontal scalability with 3 concurrent consumers
 - ✅ **Execution Logging**: Complete audit trail with worker identification
-- ⏳ **Retry Mechanism**: Coming in Day 17-18
+- ⏳ **Worker Heartbeat**: Health monitoring (Day 21)
 
 ### Current Trade-offs
-- **No retry mechanism yet**: Manual retry only (Day 17-18)
-- **No priority queuing yet**: FIFO execution (Day 19-20)
 - **No worker heartbeat yet**: Health monitoring (Day 21)
+- **No recurring tasks yet**: Cron support (Sprint 4)
+- **No metrics API yet**: Dashboard metrics (Sprint 4)
 
 ## 🤝 Contributing
 

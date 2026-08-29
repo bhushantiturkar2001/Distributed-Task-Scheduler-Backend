@@ -24,32 +24,58 @@ public class TaskProducer {
     }
 
     /**
-     * Publish a task to the execution queue
+     * Publish a task to the execution queue with priority-based routing.
+     * Routes tasks to priority-specific Kafka topics:
+     * - HIGH priority -> task.execute.high
+     * - MEDIUM priority -> task.execute.medium
+     * - LOW priority -> task.execute.low
+     * 
      * Uses task ID as the Kafka message key for consistent partitioning
      * 
      * @param task The task to be published
      */
     public void publishTask(Task task) {
         String taskId = task.getId().toString();
+        String topic = getTopicForPriority(task.getPriority());
         
-        log.info("Publishing task to Kafka - ID: {}, Name: {}, Priority: {}", 
-                taskId, task.getName(), task.getPriority());
+        log.info("Publishing task to Kafka - ID: {}, Name: {}, Priority: {}, Topic: {}", 
+                taskId, task.getName(), task.getPriority(), topic);
 
         CompletableFuture<SendResult<String, Object>> future = kafkaTemplate
-                .send(KafkaConfig.TASK_EXECUTE_TOPIC, taskId, task);
+                .send(topic, taskId, task);
 
         // Async callback for success/failure
         future.whenComplete((result, ex) -> {
             if (ex == null) {
-                log.info("Task published successfully - ID: {}, Partition: {}, Offset: {}", 
+                log.info("Task published successfully - ID: {}, Priority: {}, Topic: {}, Partition: {}, Offset: {}", 
                         taskId, 
+                        task.getPriority(),
+                        topic,
                         result.getRecordMetadata().partition(), 
                         result.getRecordMetadata().offset());
             } else {
-                log.error("Failed to publish task - ID: {}, Error: {}", 
-                        taskId, ex.getMessage(), ex);
+                log.error("Failed to publish task - ID: {}, Priority: {}, Error: {}", 
+                        taskId, task.getPriority(), ex.getMessage(), ex);
             }
         });
+    }
+    
+    /**
+     * Get Kafka topic name based on task priority.
+     * 
+     * @param priority Task priority
+     * @return Kafka topic name
+     */
+    private String getTopicForPriority(Task.TaskPriority priority) {
+        if (priority == null) {
+            priority = Task.TaskPriority.MEDIUM; // Default to MEDIUM if null
+        }
+        
+        return switch (priority) {
+            case HIGH -> KafkaConfig.TASK_EXECUTE_HIGH_PRIORITY;
+            case MEDIUM -> KafkaConfig.TASK_EXECUTE_MEDIUM_PRIORITY;
+            case LOW -> KafkaConfig.TASK_EXECUTE_LOW_PRIORITY;
+        };
     }
 
     /**

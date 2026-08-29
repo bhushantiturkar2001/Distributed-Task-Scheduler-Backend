@@ -34,9 +34,14 @@ public class KafkaConfig {
      */
     public static final String TASK_EXECUTE_TOPIC = "task.execute";
     public static final String TASK_DEAD_LETTER_TOPIC = "task.dead";
+    
+    // Priority-based topics for priority queue implementation
+    public static final String TASK_EXECUTE_HIGH_PRIORITY = "task.execute.high";
+    public static final String TASK_EXECUTE_MEDIUM_PRIORITY = "task.execute.medium";
+    public static final String TASK_EXECUTE_LOW_PRIORITY = "task.execute.low";
 
     /**
-     * Create task execution topic
+     * Create task execution topic (default - for backward compatibility)
      * - 3 partitions for parallel processing
      * - Replication factor 1 (single broker setup)
      * 
@@ -46,6 +51,51 @@ public class KafkaConfig {
     public NewTopic taskExecuteTopic() {
         return TopicBuilder.name(TASK_EXECUTE_TOPIC)
                 .partitions(3)
+                .replicas(1)
+                .build();
+    }
+    
+    /**
+     * Create HIGH priority task topic
+     * - 2 partitions for parallel processing
+     * - Replication factor 1
+     * 
+     * @return NewTopic configuration
+     */
+    @Bean
+    public NewTopic taskExecuteHighPriorityTopic() {
+        return TopicBuilder.name(TASK_EXECUTE_HIGH_PRIORITY)
+                .partitions(2)
+                .replicas(1)
+                .build();
+    }
+    
+    /**
+     * Create MEDIUM priority task topic
+     * - 3 partitions for parallel processing
+     * - Replication factor 1
+     * 
+     * @return NewTopic configuration
+     */
+    @Bean
+    public NewTopic taskExecuteMediumPriorityTopic() {
+        return TopicBuilder.name(TASK_EXECUTE_MEDIUM_PRIORITY)
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+    
+    /**
+     * Create LOW priority task topic
+     * - 2 partitions for parallel processing
+     * - Replication factor 1
+     * 
+     * @return NewTopic configuration
+     */
+    @Bean
+    public NewTopic taskExecuteLowPriorityTopic() {
+        return TopicBuilder.name(TASK_EXECUTE_LOW_PRIORITY)
+                .partitions(2)
                 .replicas(1)
                 .build();
     }

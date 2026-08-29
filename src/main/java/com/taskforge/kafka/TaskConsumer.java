@@ -54,7 +54,7 @@ public class TaskConsumer {
     }
 
     /**
-     * Consume tasks from the task.execute topic
+     * Consume HIGH priority tasks from task.execute.high topic
      * Consumer group: taskforge-workers (allows multiple workers to process in parallel)
      * 
      * @param task The task to execute
@@ -62,19 +62,75 @@ public class TaskConsumer {
      * @param offset The message offset
      */
     @KafkaListener(
-            topics = KafkaConfig.TASK_EXECUTE_TOPIC,
+            topics = KafkaConfig.TASK_EXECUTE_HIGH_PRIORITY,
             groupId = "taskforge-workers",
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void consumeTask(
+    public void consumeHighPriorityTask(
             @Payload Task task,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset) {
+        processTask(task, partition, offset, "HIGH");
+    }
+
+    /**
+     * Consume MEDIUM priority tasks from task.execute.medium topic
+     * Consumer group: taskforge-workers (allows multiple workers to process in parallel)
+     * 
+     * @param task The task to execute
+     * @param partition The Kafka partition this message came from
+     * @param offset The message offset
+     */
+    @KafkaListener(
+            topics = KafkaConfig.TASK_EXECUTE_MEDIUM_PRIORITY,
+            groupId = "taskforge-workers",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
+    public void consumeMediumPriorityTask(
+            @Payload Task task,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+            @Header(KafkaHeaders.OFFSET) long offset) {
+        processTask(task, partition, offset, "MEDIUM");
+    }
+
+    /**
+     * Consume LOW priority tasks from task.execute.low topic
+     * Consumer group: taskforge-workers (allows multiple workers to process in parallel)
+     * 
+     * @param task The task to execute
+     * @param partition The Kafka partition this message came from
+     * @param offset The message offset
+     */
+    @KafkaListener(
+            topics = KafkaConfig.TASK_EXECUTE_LOW_PRIORITY,
+            groupId = "taskforge-workers",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
+    public void consumeLowPriorityTask(
+            @Payload Task task,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+            @Header(KafkaHeaders.OFFSET) long offset) {
+        processTask(task, partition, offset, "LOW");
+    }
+
+    /**
+     * Process a task from any priority queue
+     * 
+     * @param task The task to execute
+     * @param partition The Kafka partition this message came from
+     * @param offset The message offset
+     * @param priorityLabel Priority label for logging
+     */
+    private void processTask(
+            Task task,
+            int partition,
+            long offset,
+            String priorityLabel) {
 
         String taskId = task.getId().toString();
         
         log.info("========================================");
-        log.info("Worker received task from Kafka");
+        log.info("Worker received {} PRIORITY task from Kafka", priorityLabel);
         log.info("Task ID: {}", taskId);
         log.info("Task Name: {}", task.getName());
         log.info("Task Type: {}", task.getTaskType());
