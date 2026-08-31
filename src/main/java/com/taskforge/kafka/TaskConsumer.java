@@ -54,7 +54,7 @@ public class TaskConsumer {
     }
 
     /**
-     * Consume HIGH priority tasks from task.execute.high topic
+     * Consume tasks from all priority topics (HIGH, MEDIUM, LOW)
      * Consumer group: taskforge-workers (allows multiple workers to process in parallel)
      * 
      * @param task The task to execute
@@ -62,7 +62,11 @@ public class TaskConsumer {
      * @param offset The message offset
      */
     @KafkaListener(
-            topics = KafkaConfig.TASK_EXECUTE_HIGH_PRIORITY,
+            topics = {
+                KafkaConfig.TASK_EXECUTE_HIGH_PRIORITY,
+                KafkaConfig.TASK_EXECUTE_MEDIUM_PRIORITY,
+                KafkaConfig.TASK_EXECUTE_LOW_PRIORITY
+            },
             groupId = "taskforge-workers",
             containerFactory = "kafkaListenerContainerFactory"
     )
